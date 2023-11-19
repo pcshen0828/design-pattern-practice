@@ -1,5 +1,13 @@
-function Greet(name: string) {
-  console.log(`Greetings, ${name}`);
-}
+import { AIPlayer } from './AIPlayer';
+import { HumanPlayer } from './HumanPlayer';
+import { ShowdownGame } from './ShowdownGame';
 
-Greet('Han');
+(async function runGame() {
+  const players = [new HumanPlayer(), new HumanPlayer()];
+  const game = new ShowdownGame({ players });
+
+  game.start();
+  game.distributeCards();
+  game.takeTurns();
+  game.end();
+})();
