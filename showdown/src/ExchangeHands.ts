@@ -24,15 +24,5 @@ export class ExchangeHands {
     const targetPlayerCards = this.targetPlayer.hand.getCards();
     this.requestPlayer.updateHand(targetPlayerCards);
     this.targetPlayer.updateHand(requestPlayerCards);
-
-    // every player can only exchange hands once
-    this.requestPlayer.forbidExchangeHands();
-  }
-
-  exchangeBack() {
-    const requestPlayerCards = this.requestPlayer.hand.getCards();
-    const targetPlayerCards = this.targetPlayer.hand.getCards();
-    this.requestPlayer.updateHand(targetPlayerCards);
-    this.targetPlayer.updateHand(requestPlayerCards);
   }
 }

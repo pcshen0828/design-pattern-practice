@@ -6,8 +6,8 @@ import { ShowdownGame } from './ShowdownGame';
   const players = [new HumanPlayer(), new HumanPlayer()];
   const game = new ShowdownGame({ players });
 
-  game.start();
+  await game.start();
   game.distributeCards();
-  game.takeTurns();
+  await game.takeTurns();
   game.end();
 })();

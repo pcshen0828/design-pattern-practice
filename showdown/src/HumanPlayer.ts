@@ -1,7 +1,6 @@
 import { Hand } from './Hand';
 import { Player } from './Player';
-
-let num = 1;
+import { promptConfirm, promptSelect, promptUserInput } from './helper';
 
 export class HumanPlayer extends Player {
   name: string;
@@ -17,30 +16,32 @@ export class HumanPlayer extends Player {
     this.canExchangeHands = true;
   }
 
-  nameOneself() {
-    // #TODO
-    // get name from command line
-    const name = `Human Player${num}`;
+  async nameOneself() {
+    const name = await promptUserInput({ question: `User${this.id}, please enter your name:` });
     this.name = name;
-    num += 1;
   }
 
-  showCard() {
-    // #TODO
-    // pick card from CLI
+  async showCard() {
     const cards = this.hand.getCards();
-    const card = cards[0];
-    if (!card) {
+    const cardChoices = cards.map((card, index) => ({ value: `${index}`, name: `${card.suit}${card.rank}` }));
+    const cardToShowIndex = await promptSelect({
+      question: `${this.name}, please select a card to show:`,
+      choices: cardChoices,
+      pageSize: 13,
+    });
+
+    const cardToShow = cards[Number(cardToShowIndex)];
+    if (!cardToShow) {
       throw new Error('No more cards to show');
     }
-    this.hand.removeCard(card);
-    return card;
+    this.hand.removeCard(cardToShow);
+    return cardToShow;
   }
 
-  exchangeHandOrNot() {
-    // #TODO
-    // get answer from command line
-    const answer = Math.random() < 0.5;
+  async exchangeHandOrNot() {
+    const answer = await promptConfirm({
+      question: `${this.name}, do you want to exchange your hand?`,
+    });
     return answer;
   }
 }

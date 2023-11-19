@@ -4,22 +4,22 @@ import { Hand } from './Hand';
 let num = 1;
 
 export abstract class Player {
-  id: number;
+  id: string;
   abstract name: string;
   abstract point: number;
   abstract hand: Hand;
   abstract canExchangeHands: boolean;
 
   constructor() {
-    this.id = num;
+    this.id = `${num}`;
     num += 1;
   }
 
   abstract nameOneself(): void;
 
-  abstract showCard(): Card;
+  abstract showCard(): Promise<Card>;
 
-  abstract exchangeHandOrNot(): boolean;
+  abstract exchangeHandOrNot(): Promise<boolean>;
 
   gainPoint() {
     this.point += 1;
@@ -30,6 +30,7 @@ export abstract class Player {
   }
 
   forbidExchangeHands() {
+    // every player can only exchange hands once
     this.canExchangeHands = false;
   }
 

@@ -1,6 +1,8 @@
 import { Hand } from './Hand';
 import { Player } from './Player';
 
+let num = 1;
+
 export class AIPlayer extends Player {
   name: string;
   point: number;
@@ -16,10 +18,11 @@ export class AIPlayer extends Player {
   }
 
   nameOneself() {
-    this.name = 'AI Player';
+    this.name = `AI Player${num}`;
+    num += 1;
   }
 
-  showCard() {
+  async showCard() {
     const cards = this.hand.getCards();
     const card = cards[0];
     if (!card) {
@@ -29,7 +32,7 @@ export class AIPlayer extends Player {
     return card;
   }
 
-  exchangeHandOrNot() {
+  async exchangeHandOrNot() {
     const answer = Math.random() < 0.5;
     return answer;
   }

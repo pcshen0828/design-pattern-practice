@@ -3,10 +3,11 @@ import { Card } from './Card';
 import { Deck } from './Deck';
 import { ExchangeHands } from './ExchangeHands';
 import { Player } from './Player';
+import { promptSelect } from './helper';
 import { RANK_SCORE } from './rank';
 import { SUIT_SCORE } from './suit';
 
-type ShownCard = { card: Card; playerId: number };
+type ShowCardRecord = { card: Card; playerId: Player['id']; playerName: Player['name'] };
 
 export class ShowdownGame {
   private players: Player[];
@@ -21,19 +22,21 @@ export class ShowdownGame {
     this.exchangeHandsEvents = [];
   }
 
-  start(): void {
+  async start(): Promise<void> {
     console.log('======= Game start! =======');
-    // #TODO
-    // handle async CLI input
-    this.players.forEach((player) => {
-      player.nameOneself();
-    });
+    for (let i = 0; i < this.players.length; i++) {
+      const player = this.players[i];
+      await player.nameOneself();
+    }
 
     this.deck.shuffle();
   }
 
   distributeCards(): void {
+    console.log('==============');
     console.log('Players are drawing cards...');
+    console.log('==============');
+
     const drawCount = 13;
     const playersCount = this.players.length;
 
@@ -46,39 +49,48 @@ export class ShowdownGame {
     }
   }
 
-  takeTurns(): void {
+  async takeTurns(): Promise<void> {
     while (this.round <= 13) {
-      console.log(`--- Round ${this.round} ---`);
+      console.log(`♠️ Round ${this.round}:`);
 
+      // update exchangeHands events
       this.exchangeHandsEvents.forEach((exchangeHandsEvent) => {
         exchangeHandsEvent.countdown();
         this.validateExchangeHandsEvent({ exchangeHandsEvent });
       });
 
-      const shownCards: ShownCard[] = [];
+      // players show cards
+      const showCardRecords: ShowCardRecord[] = [];
 
-      this.players.forEach((player) => {
+      for (let i = 0; i < this.players.length; i++) {
+        const player = this.players[i];
+
         if (player.canExchangeHands) {
-          const doExchangeHands = player.exchangeHandOrNot();
+          const doExchangeHands = await player.exchangeHandOrNot();
 
           if (doExchangeHands) {
-            const targetPlayer = this.pickExchangeHandsTargetPlayer({ requestPlayer: player });
+            const targetPlayerId = await this.pickExchangeHandsTargetPlayer({ requestPlayer: player });
+            const targetPlayer = this.players.find((player) => player.id === targetPlayerId);
 
-            const exchangeHandsEvent = new ExchangeHands({ requestPlayer: player, targetPlayer });
-            this.exchangeHandsEvents.push(exchangeHandsEvent);
-            exchangeHandsEvent.exchange();
+            if (targetPlayer) {
+              const exchangeHandsEvent = new ExchangeHands({ requestPlayer: player, targetPlayer });
+              this.exchangeHandsEvents.push(exchangeHandsEvent);
+              exchangeHandsEvent.exchange();
+              player.forbidExchangeHands();
+            }
           }
         }
 
         if (player.hasCard()) {
-          const card = player.showCard();
-          shownCards.push({ card, playerId: player.id });
+          const card = await player.showCard();
+          showCardRecords.push({ card, playerId: player.id, playerName: player.name });
         }
-      });
+      }
 
-      this.showdown({ shownCards });
-      this.judge({ shownCards });
+      this.showdown({ showCardRecords });
+      this.judge({ showCardRecords });
       this.round++;
+      console.log('--------------');
     }
   }
 
@@ -91,6 +103,7 @@ export class ShowdownGame {
         winner = player;
       }
     });
+    console.log('==============');
     console.log(`Winner is ${winner.name}! 🎉`);
   }
 
@@ -109,50 +122,59 @@ export class ShowdownGame {
 
   private validateExchangeHandsEvent({ exchangeHandsEvent }: { exchangeHandsEvent: ExchangeHands }): void {
     if (exchangeHandsEvent.isEnded()) {
-      exchangeHandsEvent.exchangeBack();
+      // exchange hands back
+      exchangeHandsEvent.exchange();
       this.exchangeHandsEvents = this.exchangeHandsEvents.filter(
         (event) => event.requestPlayer.id !== exchangeHandsEvent.requestPlayer.id,
       );
     }
   }
 
-  private pickExchangeHandsTargetPlayer({ requestPlayer }: { requestPlayer: Player }) {
-    // #TODO
-    // pick target player from CLI
-    const targetPlayer = this.players.find((player) => player.id !== requestPlayer.id);
-    if (!targetPlayer) throw new Error('No target player');
-    return targetPlayer;
+  private async pickExchangeHandsTargetPlayer({ requestPlayer }: { requestPlayer: Player }): Promise<Player['id']> {
+    const targetPlayerChoices = this.players
+      .filter((player) => player.id !== requestPlayer.id)
+      .map((player) => ({ value: `${player}`, name: `${player.name}` }));
+
+    const targetPlayerId = await promptSelect({
+      question: `${requestPlayer.name}, Please select a player to exchange hands: `,
+      choices: targetPlayerChoices,
+    });
+
+    if (!targetPlayerId) throw new Error('No target player');
+    return targetPlayerId;
   }
 
-  private showdown({ shownCards }: { shownCards: ShownCard[] }): void {
-    const parsedCards = shownCards
-      .map((shownCard) => {
-        const { suit, rank } = shownCard.card;
-        return `P${shownCard.playerId}-${suit}${rank}`;
+  private showdown({ showCardRecords }: { showCardRecords: ShowCardRecord[] }): void {
+    const parsedCards = showCardRecords
+      .map((record) => {
+        const { suit, rank } = record.card;
+        return `${record.playerName} - ${suit}${rank}`;
       })
-      .join(', ');
+      .join(' | ');
 
-    console.log(`showdown 【${parsedCards}】`);
+    console.log('..............');
+    console.log(`showdown result:【${parsedCards}】`);
+    console.log('..............');
   }
 
-  private judge({ shownCards }: { shownCards: ShownCard[] }) {
-    if (!shownCards.length) return;
+  private judge({ showCardRecords }: { showCardRecords: ShowCardRecord[] }) {
+    if (!showCardRecords.length) return;
 
     // 1. compare rank
-    let highestRank = RANK_SCORE[shownCards[0].card.rank];
+    let highestRank = RANK_SCORE[showCardRecords[0].card.rank];
 
-    const candidates = shownCards.reduce((candidates, shownCard) => {
-      const { rank } = shownCard.card;
+    const candidates = showCardRecords.reduce((candidates, record) => {
+      const { rank } = record.card;
       const score = RANK_SCORE[rank];
       if (score > highestRank) {
         highestRank = score;
-        return [shownCard];
+        return [record];
       }
       if (score === highestRank) {
-        candidates.push(shownCard);
+        candidates.push(record);
       }
       return candidates;
-    }, [] as ShownCard[]);
+    }, [] as ShowCardRecord[]);
 
     // 2. compare suit
     let highestSuit = SUIT_SCORE[candidates[0].card.suit];
@@ -171,6 +193,7 @@ export class ShowdownGame {
     const winnerPlayer = this.players.find((player) => player.id === winnerCard.playerId);
     if (winnerPlayer) {
       winnerPlayer.gainPoint();
+      console.log(`${winnerPlayer.name} wins this round!`);
     }
   }
 }
